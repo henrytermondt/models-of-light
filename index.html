@@ -1,4 +1,13 @@
 <!DOCTYPE html>
+<!-- 
+I apologize in advance. This code is horrible.
+
+If you would like to see an example of the wave
+simulation but with much better code, please
+check out this other repository of mine:
+https://github.com/henrytermondt/optimizing-PDEs
+
+-->
 <html>
 <head>
     <title>Wave vs. Particle Demo</title>
@@ -35,15 +44,47 @@
             height: 100vh;
         }
         #result {
-            margin-left: -5px;
+            /* margin-left: -5px; */
+            background-color: red;
         }
         
-        #canvas, #wave {
+        #canvas {
             border-style: solid;
             border-width: 2px;
             border-color: rgb(230, 230, 230);
             border-radius: 5px;
         }
+
+        #wave {
+            /* position: absolute; */
+            border: none;
+        }
+        #wave-border {
+            position: absolute;
+            /* width: calc(100% - 10px); */
+            height: 100%;
+
+            top: 0;
+
+            border-style: solid;
+            border-width: 2px;
+            border-color: rgb(230, 230, 230);
+            border-radius: 5px;
+        }
+        /* #wave::after {
+            display: block;
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100px;
+            width: 100px;
+
+            border-style: solid;
+            border-width: 2px;
+            border-color: rgb(230, 230, 230);
+            border-radius: 5px;
+        } */
 
         #wave-container {
             margin-right: 5%;
@@ -75,6 +116,10 @@
             color: white;
             font-size: 2vw;
         }
+
+        .result-container {
+            display: flex;
+        }
     </style>
 </head>
 
@@ -82,7 +127,11 @@
     <section id='simulations'>
         <div id='wave-container'>
             <h2>Wave</h2>
-            <iframe id='wave'></iframe>
+            <div style='position: relative;'>
+                <iframe id='wave'></iframe>
+                <div id='wave-border'>Help</div>
+            </div>
+            <!-- <canvas id='wave-result'></canvas> -->
             <section>
                 <button onclick='resetWave();'>Reset</button>
             </section>
@@ -91,8 +140,10 @@
 
         <div>
             <h2>Particle</h2>
-            <canvas id='canvas'></canvas>
-            <canvas id='result'></canvas>
+            <div class='result-container'>
+                <canvas id='canvas'></canvas>
+                <canvas id='result'></canvas>
+            </div>
             <section>
                 <button onclick='resetParticle();'>Reset</button>
             </section>
@@ -119,6 +170,8 @@ const src = `
             flex-direction: row;
             align-items: center;
             justify-content: center;
+
+            overflow: hidden;
 
             background-color: rgb(15, 15, 15);
         }
@@ -323,7 +376,8 @@ void main() {
     vec2 pos = gl_FragCoord.xy - 0.5;
     float n = float(**n**);
 
-    if (pos.x == 0.0 || pos.y == 0.0 || pos.x == n - 2.0 || pos.y == n - 2.0) {
+    // if (pos.x == 0.0 || pos.y == 0.0 || pos.x == n - 2.0 || pos.y == n - 2.0) { // For reflections
+    if (pos.x == 0.0 || pos.y == 0.0 || pos.y == n - 2.0) { // Lets it not reflect on right side
         gl_FragColor = vec4(0, 0, pos);
     } else {
         vec2 aPos = vec2(pos.x * float(**ARowLen**), pos.y) + 0.5;
@@ -378,14 +432,27 @@ precision highp float;
 uniform sampler2D wf;
 uniform vec2 wfDim;
 
-void main() {
-    vec3 pix = texture2D(wf, gl_FragCoord.xy / wfDim).xyz;
-    float module = pix.x * pix.x + pix.y * pix.y;
+uniform float fullWidth;
 
-    vec3 low = vec3(0.02, 0, 0.02);
-    vec3 high = 2.0 * vec3(0.7, 0.5, 0.4);
-    
-    gl_FragColor = vec4(mix(low, high, pow(module, 1.3)), 1);
+void main() {
+    vec2 pos = gl_FragCoord.xy;
+    if (pos.x < wfDim.x - 10.001) {
+        vec3 pix = texture2D(wf, pos / wfDim).xyz;
+        float module = pix.x * pix.x + pix.y * pix.y;
+
+        vec3 low = vec3(0.02, 0, 0.02);
+        vec3 high = 2.0 * vec3(0.7, 0.5, 0.4);
+        
+        gl_FragColor = vec4(mix(low, high, pow(module, 1.3)), 1);
+    } else {
+        vec3 pix = texture2D(wf, vec2(wfDim.x - 10.0, pos.y) / wfDim).xyz;
+        float module = pix.x * pix.x + pix.y * pix.y;
+
+        vec3 low = vec3(0.0392, 0.0392, 0.0392);
+        vec3 high = 2.0 * vec3(0.7, 0.5, 0.4);
+        
+        gl_FragColor = vec4(mix(low, high, pow(module, 1.7)) * 1.5, 1);
+    }
 }
 
     &lt;/script>
@@ -425,7 +492,7 @@ for (let i = 0; i < n; i ++) {
         imgData.data[index + 1] = 255;
         imgData.data[index + 2] = 255;
         imgData.data[index + 3] = 255;
-        vArr[i * (n - 2) + (x + w)] = 10000;
+        vArr[i * (n - 2) + (x + w)] = 100000;
     }
 }
 
@@ -435,7 +502,7 @@ const canvas = document.getElementById('canvas'),
 const overlay = document.getElementById('overlay'),
     octx = overlay.getContext('2d');
 
-canvas.width = n - 2;
+canvas.width = n - 2 + 10.001;
 canvas.height = n - 2;
 overlay.width = n - 2;
 overlay.height = n - 2;
@@ -444,13 +511,18 @@ overlay.height = n - 2;
 
     <!-- WebGL -->
     <script>
+
+try {
 const cgl = new ComputeShaderContext(),
     glCanvas = cgl.canvas,
     gl = cgl.context;
 
+
+const fullWidth = n - 2 + 10.001;
+
 glCanvas.id = 'gl-canvas';
 canvas.insertAdjacentElement('beforebegin', glCanvas);
-glCanvas.width = n - 2;
+glCanvas.width = fullWidth;
 glCanvas.height = n - 2;
 
 ComputeShader.useContext(cgl);
@@ -461,6 +533,7 @@ const inputDim = n - 2;
 const vInput = new ComputeShaderInput('v', vArr, n - 2, n - 2, 'LUMINANCE');
 const rxUniform = new ComputeShaderUniform('rx', '2fv', [rx.r, rx.i]),
     ryUniform = new ComputeShaderUniform('ry', '2fv', [ry.r, ry.i]);
+const fullWidthUniform = new ComputeShaderUniform('fullWidth', '1f', fullWidth);
 
 const fillAcs = new ComputeShader(
     document.getElementById('fillA').textContent
@@ -534,8 +607,9 @@ solvecs.addInput(bInput);
 solvecs.addInput(wfInput);
 solvecs.addInput(AInput);
 
-const rendercs = new ComputeShader(document.getElementById('render').textContent, inputDim, inputDim);
+const rendercs = new ComputeShader(document.getElementById('render').textContent, fullWidth, inputDim);
 rendercs.addInput(wfInput);
+rendercs.addUniform(fullWidthUniform);
 
 
 const calcbGPU = () => {
@@ -569,7 +643,7 @@ const runAll = () => {
 
 octx.putImageData(imgData, 0, 0);
 
-window.onmessage = () => {
+const reset = () => {
     const fillwfcs = new ComputeShader(
         document.getElementById('fillwf').textContent
             .replaceAll('**cx**', l / 4)
@@ -583,13 +657,35 @@ window.onmessage = () => {
     fillwfcs.initializeUniforms();
     fillwfcs.run();
     ComputeShader.swap(wfInput, fillwfcs.output);
+
+    frames = 0;
 };
 
+window.onmessage = () => {
+    reset();
+    saved = false;
+};
+
+
+let frames = 0,
+    saved = false;
+let savedData;
 const loop = () => {
     runAll();
 
+
     ctx.drawImage(glCanvas, 0, 0);
     ctx.drawImage(overlay, 0, 0);
+    if (saved) ctx.putImageData(savedData, n - 9, 0);
+
+    if (!saved && frames === 660) {
+        saved = true;
+        savedData = ctx.getImageData(n - 2 - 10, 0, 20, n - 2);
+    }
+
+    if (frames ++ === 690) {
+        reset();
+    }
 
     window.requestAnimationFrame(loop);
 };
@@ -597,6 +693,9 @@ const loop = () => {
 loop();
 
 
+} catch(e) {
+    document.body.textContent = e;
+}
 
     &lt;/script>
 </body>
@@ -612,17 +711,31 @@ const canvas = document.getElementById('canvas'),
     ctx = canvas.getContext('2d');
 const rcanvas = document.getElementById('result'),
     rctx = rcanvas.getContext('2d');
+// const rwcanvas = document.getElementById('wave-result'),
+//     rwctx = rwcanvas.getContext('2d');
+const waveBorder = document.getElementById('wave-border');
 
 let dim;
 const setSize = () => {
     if (window.innerWidth / 2 > window.innerHeight - 100) dim = (window.innerHeight - 100) * 0.8;
     else dim = window.innerWidth * 0.4;
 
-    wave.width = canvas.width = dim;
+    wave.width = dim + 10.001;
+    canvas.width = dim;
+    waveBorder.style.width = (dim + 10) * 0.95 + 'px';
+    waveBorder.style.height = dim - 1 + 'px';
     wave.height = canvas.height = dim;
 
     rcanvas.width = 10;
     rcanvas.height = dim;
+
+
+    // window.onmessage = e => {
+    //     const d = e.data;
+    //     for (let i = 0; i < ; i ++) {
+    //         ctx.fillStyle = ``;
+    //     }
+    // };
 };
 setSize();
 
@@ -710,8 +823,7 @@ const resetWave = () => {
 };
 const resetParticle = () => {
     maxHit = 0;
-    hits.length = 0;
-
+    hits.set(new Float32Array(1 / (0.002 * 2) | 0));
     particles.length = 0;
 };
 
